@@ -1,3 +1,8 @@
+varying vec2 uv;
+varying vec2 texCoord;
+uniform samplerCube box;
+uniform float time;
+
 #define count 5
 vec3 bPos[count];
 
@@ -13,12 +18,12 @@ float Hash2(float n)
 
 float HashMix(float m, float n, float lerp)
 {
-	return mix(Hash1(m),Hash2(n),lerp);
+    return mix(Hash1(m),Hash2(n),lerp);
 }
 
 float Noise(vec3 x)
 {
-	vec3 p = floor(x);
+    vec3 p = floor(x);
     vec3 f = fract(x);
     f = f*f*(3.-2.*f);
     float n = p.x + 157.*p.y + 113.*p.z;    
@@ -30,7 +35,7 @@ float Noise(vec3 x)
 
 float smin(float a, float b)
 {
-	float s = exp(-2.5*a)+exp(-2.5*b);    
+    float s = exp(-2.5*a)+exp(-2.5*b);
     return -log(s)/2.5;
 }
 
@@ -44,17 +49,17 @@ float Balls(vec3 p, float s)
         float l = length(np)-0.55;//-.2*length(texture2D(iChannel1, 200.*bPos[i].xz));
         delta = smin(l, delta);
     }
-	return delta;
+    return delta;
 }
 
 vec2 Min(vec2 a, vec2 b)
 {    
-	return (a.x < b.x)? a : b;
+    return (a.x < b.x)? a : b;
 }
 
 vec2 Map(vec3 pos)
 {
-	//pos.xz = mod(pos.xz, 15.)-7.5;
+    //pos.xz = mod(pos.xz, 15.)-7.5;
     vec2 res = Min(vec2(10.), vec2(Balls(pos, .8),32.));
     return res;
 }
@@ -65,7 +70,7 @@ vec2 Scene(vec3 ro, vec3 rd)
     float k = 0.;
     for (int i = 0; i < 290; i++) {
         vec3 pos = ro+rd*t;
-    	vec2 res = Map(pos);
+        vec2 res = Map(pos);
         k = max(res.x, k);
         if (res.x < 0.0001 || t > 50.)
             break;
@@ -79,73 +84,60 @@ vec2 Scene(vec3 ro, vec3 rd)
 
 vec3 CalcNormal(vec3 pos)
 {
-	vec3 eps = vec3(0.01, 0., 0.);
+    vec3 eps = vec3(0.01, 0., 0.);
     vec3 nor = (vec3(Map(pos + eps).x - Map(pos - eps).x,
                      Map(pos + eps.yxy).x - Map(pos - eps.yxy).x,
                      Map(pos + eps.yyx).x - Map(pos - eps.yyx).x));
-	return normalize(nor);
+    return normalize(nor);
 }
 
 vec3 RenderRefl(vec3 ro, vec3 rd)
 {
-	vec3 col = vec3(0.), lPos = normalize(vec3(.3, 1., 0.5)), normal = vec3(0.), lCol = vec3(0.3, 0.3, 0.3);
+    vec3 col = vec3(0.), lPos = normalize(vec3(.3, 1., 0.5)), normal = vec3(0.), lCol = vec3(0.3, 0.3, 0.3);
     vec2 res = Scene(ro, rd);
     float t = res.x;
     vec3 pos = ro + rd*t;   
     normal = CalcNormal(pos);
     if (res.y >= 32.) { //sphere
-        /*col = mix(vec3(0.5, 0., 0.4), vec3(0.8, 0.1, 0.2), normal.z);
-        col += 0.4*dot(normal, lPos);
-    	col += 0.5*lCol;
-        col += .7*lCol*pow(max(dot(lPos, reflect(-normalize(ro+rd*t), normal)), 0.), 40.);
-    	*/
         col = mix(vec3(0.5, 0., 0.4), vec3(0.8, 0.1, 0.2), normal.y);
-        //col = .5*vec3(.5);
-		//col += 0.3*dot(normal, lPos)*lCol;
-    	//col += 0.2*lCol;
-        col += textureCube(iChannel0, reflect(normalize(-pos), normal)).xyz;
+        col += texture(box, reflect(normalize(-pos), normal)).xyz;
     }
     return col;
 }
 
 vec3 Render(vec3 ro, vec3 rd)
 {
-	vec3 col = vec3(0.), lPos = normalize(vec3(0., 1., 1.)), normal = vec3(0.), lCol = vec3(1.);
+    vec3 col = vec3(0.), lPos = normalize(vec3(0., 1., 1.)), normal = vec3(0.), lCol = vec3(1.);
     vec2 res = Scene(ro, rd);
     float t = res.x;
     vec3 pos = ro + rd*t;   
     normal = CalcNormal(pos);
     if (res.y >= 32.) { //sphere
-        //col = mix(vec3(0.5, 0., 0.4), vec3(0.8, 0.1, 0.2), normal.y);
-        //col = .5*vec3(.5);
-		//col += 0.3*dot(normal, lPos)*lCol;
-    	//col += 0.2*lCol;
-        //col += RenderRefl(pos, reflect(normalize(-pos), normal));
-        col += .7*textureCube(iChannel0, reflect(normalize(-pos), normal)).xyz;
+        col += .7*texture(box, reflect(normalize(-pos), normal)).xyz;
         col += pow(max(dot(lPos, reflect(-normalize(ro+rd*t), normal)), 0.), 40.);
         if (Scene(pos, normalize(lPos-normalize(pos))).y == -1.)
             col *= .5;
     } else {
-    	col = textureCube(iChannel0, -(ro+rd*20.)).xyz;
+        col = texture(box, -(ro+rd*20.)).xyz;
     }
     return col;
 }
 
-void mainImage(out vec4 fragColor, in vec2 fragCoord)
+void main()
 {
-	fragColor = vec4(0.);
-    vec2 uv = fragCoord.xy / iResolution.xy * 2.;
-    uv -= 1.;
-    uv.x *= iResolution.x/iResolution.y;
+    gl_FragColor = vec4(0.);
+    vec2 v = uv * 2.;
+    v -= 1.;
+    v.x *= 400./400.;
     
     float x = -0.0;
-    float y = 2.;//(0.03*iMouse.y);
-    float z = 7.0;//*sin(0.1*iGlobalTime)+ iMouse.x;
+    float y = 2.;
+    float z = 7.0;
 
     for (int i = 0; i < count; i++) {
-    	bPos[i] = vec3(sin(iGlobalTime*.5+.967+42.*(float(i))),
-                       1.+cos(iGlobalTime*.5*.423+152.*(float(i))),
-                       3.+cos(.76321*iGlobalTime*.5+(float(i))));
+        bPos[i] = vec3(sin(time*.5+.967+42.*(float(i))),
+                       1.+cos(time*.5*.423+152.*(float(i))),
+                       3.+cos(.76321*time*.5+(float(i))));
     }
     
     vec3 ro = vec3(x, y, z);
@@ -159,5 +151,5 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     vec3 col = Render(ro, rd);
     
-    fragColor = vec4(col, 1.);
+    gl_FragColor = vec4(col, 1.);
 }

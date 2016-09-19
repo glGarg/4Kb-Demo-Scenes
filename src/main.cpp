@@ -20,6 +20,8 @@ using std::vector;
 using std::string;
 using std::ifstream;
 
+#define ENABLE_CUBEMAP
+
 void readShaderFile(string file, string &source){
 	ifstream input;
 	input.open(file.c_str(), std::ifstream::in);
@@ -126,7 +128,7 @@ int main(){
 
 	Shader *vertex = new Shader("./assets/PassThruVertex.glsl", GL_VERTEX_SHADER);
 	vertex->create();
-	Shader *fragment = new Shader("./assets/MusicalBalls.glsl", GL_FRAGMENT_SHADER);
+	Shader *fragment = new Shader("./assets/MetaBalls.glsl", GL_FRAGMENT_SHADER);
 	fragment->create();
 	
 	program = new Program();
@@ -135,13 +137,18 @@ int main(){
 	program->link();
 
 	string texturePath;
-	cout << "Enter path to the texture file." << endl;
+	cout << "Enter path to the texture file/cubemap directory." << endl;
 	std::cin >> texturePath;
 
 	ifstream file(texturePath.c_str());
 	if(!file.good()){
+#ifndef ENABLE_CUBEMAP
 		cout << "Problem with the address provided. Loading the default sampler2D." << endl;
 		texturePath = "./textures/noise_texture_0001.png";
+#else
+		cout << "Problem with the address provided. Loading the default samplerCube." << endl;
+		texturePath = "./textures/cubemap";
+#endif
 	}
 	else file.close();
 
@@ -156,6 +163,8 @@ int main(){
 
 	glGenTextures(1, &texture);
 	glActiveTexture(GL_TEXTURE0);
+
+#ifndef ENABLE_CUBEMAP
 	glBindTexture(GL_TEXTURE_2D, texture);
 	image = SOIL_load_image(texturePath.c_str(), &width, &height, 0, SOIL_LOAD_RGBA);
 
@@ -170,11 +179,35 @@ int main(){
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
 
+	SOIL_free_image_data(image);
+#else
+	vector<string> faces;
+	faces.push_back(texturePath + "/right.jpg");
+	faces.push_back(texturePath + "/left.jpg");
+	faces.push_back(texturePath + "/top.jpg");
+	faces.push_back(texturePath + "/bottom.jpg");
+	faces.push_back(texturePath + "/back.jpg");
+	faces.push_back(texturePath + "/front.jpg");
+
+	glBindTexture(GL_TEXTURE_CUBE_MAP, texture);
+	for(int i = 0; i < faces.size(); i++){
+		image = SOIL_load_image(faces[i].c_str(), &width, &height, 0, SOIL_LOAD_RGBA);
+		if(!image){
+			cout << "Error loading the texture file." << endl;
+			return -4;
+		}
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+		SOIL_free_image_data(image);
+	}
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+#endif
+
 	glUniform1i(texture_uniform_program, 0);
 	glUniform1f(time_uniform_program, glfwGetTime());
-
-	SOIL_free_image_data(image);
-
 
 	float position[] = {
 		-1.f,  1.f,
