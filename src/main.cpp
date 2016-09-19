@@ -12,11 +12,11 @@
 #include <fstream>
 #include <string>
 #include <sstream>
+#include <SOIL.h>
 
 using std::cout;
 using std::endl;
 using std::vector;
-using std::map;
 using std::string;
 using std::ifstream;
 
@@ -35,9 +35,9 @@ class Shader{
 public:
 	Shader(string file, GLenum type) : file(file), type(type){}
 	~Shader(){
-		if(!glGetShader(shader, GL_DELETE_STATUS)){
+		//if(!glGetShader(shader, GL_DELETE_STATUS)){
 			glDeleteShader(shader);
-		}
+		//}
 	}
 	void create(){
 		shader = glCreateShader(type);
@@ -126,7 +126,7 @@ int main(){
 
 	Shader *vertex = new Shader("./assets/PassThruVertex.glsl", GL_VERTEX_SHADER);
 	vertex->create();
-	Shader *fragment = new Shader("./assets/Glow.glsl", GL_FRAGMENT_SHADER);
+	Shader *fragment = new Shader("./assets/MusicalBalls.glsl", GL_FRAGMENT_SHADER);
 	fragment->create();
 	
 	program = new Program();
@@ -134,11 +134,47 @@ int main(){
 	program->attach(*fragment);
 	program->link();
 
+	string texturePath;
+	cout << "Enter path to the texture file." << endl;
+	std::cin >> texturePath;
+
+	ifstream file(texturePath.c_str());
+	if(!file.good()){
+		cout << "Problem with the address provided. Loading the default sampler2D." << endl;
+		texturePath = "./textures/noise_texture_0001.png";
+	}
+	else file.close();
+
+	int width, height;
+	unsigned char* image;
+	GLuint time_uniform_program, texture_uniform_program, texture;
+
 	glUseProgram(*program);
 
-	GLuint time_uniform_program;
 	time_uniform_program = glGetUniformLocation(*program, "time");
+	texture_uniform_program = glGetUniformLocation(*program, "texture");
+
+	glGenTextures(1, &texture);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	image = SOIL_load_image(texturePath.c_str(), &width, &height, 0, SOIL_LOAD_RGBA);
+
+	if(image == 0){
+		cout << "Error loading the texture file." << endl;
+		return -4;
+	}
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+
+	glUniform1i(texture_uniform_program, 0);
 	glUniform1f(time_uniform_program, glfwGetTime());
+
+	SOIL_free_image_data(image);
+
 
 	float position[] = {
 		-1.f,  1.f,
@@ -149,15 +185,30 @@ int main(){
 		-1.f,  1.f
 	};
 
-	GLuint vao, vbo;
+	float texCoord[] = {
+		 0.f,  1.f,
+		 1.f,  0.f,
+		 0.f,  0.f,
+		 1.f,  1.f,
+		 1.f,  0.f,
+		 0.f,  1.f,
+	};
+
+	GLuint vao, vbo[2];
 	glGenVertexArrays(1, &vao);
 	glBindVertexArray(vao);
 
-	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glGenBuffers(2, vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(position), position, GL_STATIC_DRAW);
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, NULL);
 	glEnableVertexAttribArray(0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(texCoord), texCoord, GL_STATIC_DRAW);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+	glEnableVertexAttribArray(1);
+
 	glfwSetKeyCallback(window, keyboardInputFunc);
 
 	glEnable(GL_DEPTH_TEST);
@@ -171,9 +222,9 @@ int main(){
 		glUniform1f(time_uniform_program, glfwGetTime());
 
 		glBindVertexArray(vao);
-		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+		glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
 		glEnableVertexAttribArray(0);
-	
+
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 6);
 		glDisableVertexAttribArray(0);
 		glBindVertexArray(0);
