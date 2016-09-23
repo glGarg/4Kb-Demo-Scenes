@@ -2,17 +2,14 @@
 #include <GL/gl.h>
 #include <glfw3.h>
 #include <glm.hpp>
-#include <gtc/type_ptr.hpp>
-#include <gtc/quaternion.hpp>
-#include <gtc/matrix_transform.hpp>
-#include <gtx/string_cast.hpp>
-#include <gtx/transform.hpp>
 #include <iostream>
 #include <vector>
 #include <fstream>
 #include <string>
 #include <sstream>
 #include <SOIL.h>
+#include "Shader.hpp"
+#include "Program.hpp"
 
 using std::cout;
 using std::endl;
@@ -21,73 +18,6 @@ using std::string;
 using std::ifstream;
 
 #define ENABLE_CUBEMAP
-
-void readShaderFile(string file, string &source){
-	ifstream input;
-	input.open(file.c_str(), std::ifstream::in);
-	if(!input.good())
-		cout << "Shader file is not loaded. Please check address." << endl;
-	string user;
-	while(std::getline(input, user)){
-		source += user + "\n";
-	}
-}
-
-class Shader{
-public:
-	Shader(string file, GLenum type) : file(file), type(type){}
-	~Shader(){
-		//if(!glGetShader(shader, GL_DELETE_STATUS)){
-			glDeleteShader(shader);
-		//}
-	}
-	void create(){
-		shader = glCreateShader(type);
-		string source;
-		readShaderFile(file, source);
-		const char *s = source.c_str();
-		glShaderSource(shader, 1, &s, NULL);
-		compile();
-	}
-	operator GLuint(){return shader;}
-private:
-	void compile(){
-		glCompileShader(shader);
-		GLint length = 0;
-		glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
-		std::vector<GLchar> errorLog(length);
-		glGetShaderInfoLog(shader, length, &length, &errorLog[0]);
-		int i = 0;
-		while(errorLog[i]){
-			std::cout << errorLog[i++];
-		}
-	}
-	GLenum type;
-	GLuint shader;
-	string file;
-};
-
-class Program{
-public:
-	Program(){
-		program = glCreateProgram();
-	}
-	~Program(){
-		glDeleteProgram(program);
-	}
-	void attach(Shader &shader){
-		glAttachShader(program, shader);
-	}
-	void link(){
-		glLinkProgram(program);
-	}
-	void use(){
-		glUseProgram(program);
-	}
-	operator GLuint(){return program;}
-private:
-	GLuint program;
-};
 
 Program *program = NULL;
 
@@ -110,6 +40,10 @@ static void keyboardInputFunc(GLFWwindow *window, int key, int, int action, int)
 				break;
 		}
 	}
+}
+
+static void windowSizeChangeFunc(GLFWwindow *window, int width, int height){
+	glUniform2f(glGetUniformLocation(*program, "resolution"), width, height);
 }
 
 int main(){	
@@ -140,24 +74,31 @@ int main(){
 	cout << "Enter path to the texture file/cubemap directory." << endl;
 	std::cin >> texturePath;
 
+#ifndef ENABLE_CUBEMAP
 	ifstream file(texturePath.c_str());
+#else
+	ifstream file((texturePath + "/right.jpg").c_str());
+#endif
+
 	if(!file.good()){
 #ifndef ENABLE_CUBEMAP
 		cout << "Problem with the address provided. Loading the default sampler2D." << endl;
-		texturePath = "./textures/noise_texture_0001.png";
+		texturePath = "../textures/noise_texture_0001.png";
 #else
 		cout << "Problem with the address provided. Loading the default samplerCube." << endl;
-		texturePath = "./textures/cubemap";
+		texturePath = "../textures/cubemap";
 #endif
 	}
 	else file.close();
 
 	int width, height;
 	unsigned char* image;
-	GLuint time_uniform_program, texture_uniform_program, texture;
+	GLuint resolution_uniform_program, time_uniform_program, texture_uniform_program,
+		   texture;
 
 	glUseProgram(*program);
 
+	resolution_uniform_program = glGetUniformLocation(*program, "resolution");
 	time_uniform_program = glGetUniformLocation(*program, "time");
 	texture_uniform_program = glGetUniformLocation(*program, "texture");
 
@@ -206,8 +147,10 @@ int main(){
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 #endif
 
+	glfwGetWindowSize(window, &width, &height);
 	glUniform1i(texture_uniform_program, 0);
 	glUniform1f(time_uniform_program, glfwGetTime());
+	glUniform2f(resolution_uniform_program, width, height);
 
 	float position[] = {
 		-1.f,  1.f,
@@ -243,7 +186,7 @@ int main(){
 	glEnableVertexAttribArray(1);
 
 	glfwSetKeyCallback(window, keyboardInputFunc);
-
+	glfwSetWindowSizeCallback(window, windowSizeChangeFunc);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 
