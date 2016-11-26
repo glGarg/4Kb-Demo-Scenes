@@ -4,7 +4,7 @@ Ray March Algorithm Demos and C++ sandbox
 ## Usage
 To use change the pixel shader file path in main and specify texture/cubemap as needed.
 
-## Demo
+## Demos
 [![VideoDemo](http://i.imgur.com/iVy7Rgm.jpg)](https://www.youtube.com/watch?v=nsyX1PPbWAY "SeaWater")  
 [![VideoDemo](http://i.imgur.com/hu3jd1B.jpg)](https://www.youtube.com/watch?v=J0ta3FIejTc "Mountains")  
 [![VideoDemo](http://i.imgur.com/JTb4UwX.jpg)](https://www.youtube.com/watch?v=xEJgtq0fqL0 "Planet")  
