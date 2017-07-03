@@ -118,7 +118,7 @@ bool Scene(vec3 ro, vec3 rd, out float t, vec2 fragCoord) {
         sphereR = SphereRadius(t);
         if (h < sphereR) {
             s = (1. - s) * (sphereR - h) / (sphereR);
-            hit = true
+            hit = true;
         }
         t += 0.5 * h + 0.003 * t;
     }
