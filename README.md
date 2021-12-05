@@ -1,5 +1,5 @@
 # 4Kb-Demo-Scenes
-Ray March Algorithm Demos and C++ sandbox
+Ray March Algorithm Demos and C++ sandbox.
 
 ## Usage
 To use change the pixel shader file path in main and specify texture/cubemap as needed.
